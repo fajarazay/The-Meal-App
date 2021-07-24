@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import Combine
 
 class HomePresenter: ObservableObject {
 
@@ -21,22 +22,23 @@ class HomePresenter: ObservableObject {
     self.homeUseCase = homeUseCase
   }
   
+  private var cancellables: Set<AnyCancellable> = []
+
   func getCategories() {
     loadingState = true
-    homeUseCase.getCategories { result in
-      switch result {
-      case .success(let categories):
-        DispatchQueue.main.async {
-          self.loadingState = false
-          self.categories = categories
-        }
-      case .failure(let error):
-        DispatchQueue.main.async {
-          self.loadingState = false
-          self.errorMessage = error.localizedDescription
-        }
-      }
-    }
+    homeUseCase.getCategories()
+        .receive(on: RunLoop.main)
+        .sink(receiveCompletion: { completion in
+            switch completion {
+            case .failure:
+                self.errorMessage = String(describing: completion)
+            case .finished:
+                self.loadingState = false
+            }
+        }, receiveValue: { categories in
+            self.categories = categories
+        })
+        .store(in: &cancellables)
   }
   
   func linkBuilder<Content: View>(
