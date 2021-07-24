@@ -8,12 +8,11 @@
 
 import Foundation
 import Alamofire
-import RxSwift
+import Combine
 
 protocol RemoteDataSourceProtocol: class {
 
-  func getCategories() -> Observable<[CategoryResponse]>
-  
+    func getCategories() -> AnyPublisher<[CategoryResponse], Error>
 }
 
 final class RemoteDataSource: NSObject {
@@ -25,23 +24,20 @@ final class RemoteDataSource: NSObject {
 }
 
 extension RemoteDataSource: RemoteDataSourceProtocol {
-
-    func getCategories() -> Observable<[CategoryResponse]> {
-        return Observable<[CategoryResponse]>.create{ observer in
-            if let url = URL(string: Endpoints.Gets.categories.url) {
-                AF.request(url)
-                    .validate()
-                    .responseDecodable(of: CategoriesResponse.self) { response in
-                        switch response.result {
-                        case .success(let value):
-                            observer.onNext(value.categories)
-                            observer.onCompleted()
-                        case .failure:
-                            observer.onError(URLError.invalidResponse)
-                        }
-                    }
+  func getCategories() -> AnyPublisher<[CategoryResponse], Error> {
+    return Future<[CategoryResponse], Error> { completion in
+      if let url = URL(string: Endpoints.Gets.categories.url) {
+        AF.request(url)
+          .validate()
+          .responseDecodable(of: CategoriesResponse.self) { response in
+            switch response.result {
+            case .success(let value):
+              completion(.success(value.categories))
+            case .failure:
+              completion(.failure(URLError.invalidResponse))
             }
-            return Disposables.create()
-        }
-    }
+          }
+      }
+    }.eraseToAnyPublisher()
+  }
 }

@@ -7,11 +7,11 @@
 //
 
 import Foundation
-import RxSwift
+import Combine
 
 protocol MealRepositoryProtocol {
 
-  func getCategories() -> Observable<[CategoryModel]>
+  func getCategories() -> AnyPublisher<[CategoryModel], Error>
 
 }
 
@@ -31,18 +31,23 @@ final class MealRepository: NSObject {
 
 extension MealRepository: MealRepositoryProtocol {
 
-    func getCategories() -> Observable<[CategoryModel]> {
-        return self.locale.getCategories()
-            .map{ CategoryMapper.mapCategoryEntitiesToDomains(input: $0) }
-            .filter{ !$0.isEmpty }
-            .ifEmpty(switchTo: self.remote.getCategories()
-                        .map{ CategoryMapper.mapCategoryResponsesToEntities(input: $0) }
-                        .flatMap{ self.locale.addCategories(from: $0) }
-                        .filter{ $0}
-                        .flatMap{ _ in self.locale.getCategories()
-                            .map{ CategoryMapper.mapCategoryEntitiesToDomains(input: $0) }
-                        }
-                     
-            )
+    func getCategories() -> AnyPublisher<[CategoryModel], Error> {
+      return self.locale.getCategories()
+        .flatMap { result -> AnyPublisher<[CategoryModel], Error> in
+          if result.isEmpty {
+            return self.remote.getCategories()
+              .map { CategoryMapper.mapCategoryResponsesToEntities(input: $0) }
+              .flatMap { self.locale.addCategories(from: $0) }
+              .filter { $0 }
+              .flatMap { _ in self.locale.getCategories()
+                .map { CategoryMapper.mapCategoryEntitiesToDomains(input: $0) }
+              }
+              .eraseToAnyPublisher()
+          } else {
+            return self.locale.getCategories()
+              .map { CategoryMapper.mapCategoryEntitiesToDomains(input: $0) }
+              .eraseToAnyPublisher()
+          }
+        }.eraseToAnyPublisher()
     }
 }

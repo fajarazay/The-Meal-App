@@ -6,12 +6,11 @@
 //  Copyright © 2020 Dicoding Indonesia. All rights reserved.
 //
 
-import Foundation
-import RxSwift
+import Combine
 
 protocol HomeUseCase {
 
-    func getCategories() -> Observable<[CategoryModel]>
+  func getCategories() -> AnyPublisher<[CategoryModel], Error>
 
 }
 
@@ -23,8 +22,8 @@ class HomeInteractor: HomeUseCase {
     self.repository = repository
   }
   
-    func getCategories() -> Observable<[CategoryModel]> {
-        return repository.getCategories()
-    }
+  func getCategories() -> AnyPublisher<[CategoryModel], Error> {
+      return repository.getCategories()
+  }
 
 }
