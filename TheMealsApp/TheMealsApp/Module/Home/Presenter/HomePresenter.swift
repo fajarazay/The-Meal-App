@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import RxSwift
 
 class HomePresenter: ObservableObject {
 
@@ -17,26 +18,23 @@ class HomePresenter: ObservableObject {
   @Published var errorMessage: String = ""
   @Published var loadingState: Bool = false
   
+  private let disposeBag = DisposeBag()
+    
   init(homeUseCase: HomeUseCase) {
     self.homeUseCase = homeUseCase
   }
   
   func getCategories() {
     loadingState = true
-    homeUseCase.getCategories { result in
-      switch result {
-      case .success(let categories):
-        DispatchQueue.main.async {
-          self.loadingState = false
-          self.categories = categories
-        }
-      case .failure(let error):
-        DispatchQueue.main.async {
-          self.loadingState = false
-          self.errorMessage = error.localizedDescription
-        }
-      }
-    }
+    homeUseCase.getCategories()
+        .observe(on: MainScheduler.instance)
+        .subscribe{ result in
+            self.categories = result
+        } onError: { error in
+            self.errorMessage = error.localizedDescription
+        } onCompleted: {
+            self.loadingState = false
+        }.disposed(by: disposeBag)
   }
   
   func linkBuilder<Content: View>(
